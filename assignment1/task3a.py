@@ -15,17 +15,21 @@ def cross_entropy_loss(targets: np.ndarray, outputs: np.ndarray):
     # TODO implement this function (Task 3a)
     assert targets.shape == outputs.shape,\
         f"Targets shape: {targets.shape}, outputs: {outputs.shape}"
-    raise NotImplementedError
-
+    
+    epsilon = 1e-12
+    outputs_clipped = np.clip(outputs, epsilon, 1. - epsilon)
+    loss_per_batch = - np.sum(targets * np.log(outputs_clipped), axis=1) / outputs.shape[0]
+    loss = np.sum(loss_per_batch)
+    return loss
 
 class SoftmaxModel:
 
-    def __init__(self, l2_reg_lambda: float):
+    def __init__(self, l2_reg_lambda: float, num_neurons, num_classes):
         # Define number of input nodes
-        self.I = None
+        self.I = num_neurons
 
         # Define number of output nodes
-        self.num_outputs = None
+        self.num_outputs = num_classes
         self.w = np.zeros((self.I, self.num_outputs))
         self.grad = None
 
@@ -39,7 +43,17 @@ class SoftmaxModel:
             y: output of model with shape [batch size, num_outputs]
         """
         # TODO implement this function (Task 3a)
-        return None
+
+        #Weighted sum
+        weighted_sum = np.dot(X, self.w) # (batch_size, num_outputs)
+        
+        #Softmax
+        z_max = np.max(weighted_sum, axis=1, keepdims=True) #numerical stability
+        z_exp = np.exp(weighted_sum - z_max)
+        sum_z_exp = np.sum(z_exp, axis=1, keepdims=True)
+        softmax = z_exp / sum_z_exp
+
+        return softmax
 
     def backward(self, X: np.ndarray, outputs: np.ndarray, targets: np.ndarray) -> None:
         """
@@ -58,6 +72,9 @@ class SoftmaxModel:
         self.grad = np.zeros_like(self.w)
         assert self.grad.shape == self.w.shape,\
             f"Grad shape: {self.grad.shape}, w: {self.w.shape}"
+        
+        error = targets - outputs #(batch_size, 10)
+        self.grad = - np.dot(X.T, error) / X.shape[0] + self.l2_reg_lambda * self.w
 
     def zero_grad(self) -> None:
         self.grad = None
@@ -72,7 +89,14 @@ def one_hot_encode(Y: np.ndarray, num_classes: int):
         Y: shape [Num examples, num classes]
     """
     # TODO implement this function (Task 3a)
-    raise NotImplementedError
+    # one_hot_encoded = np.zeros((Y.shape[0], num_classes))
+    # one_hot_encoded[np.arange(Y.shape[0]), Y] = 1
+    # return one_hot_encoded
+    encode = np.zeros((Y.shape[0], num_classes), dtype=int)
+    for i, (row) in enumerate(Y):
+        encode[i, row[0]] = 1
+
+    return encode
 
 
 def gradient_approximation_test(model: SoftmaxModel, X: np.ndarray, Y: np.ndarray):
@@ -122,11 +146,12 @@ def main():
         f"Expected X_train to have 785 elements per image. Shape was: {X_train.shape}"
 
     # Simple test for forward pass. Note that this does not cover all errors!
-    model = SoftmaxModel(0.0)
+    model = SoftmaxModel(0.0, X_train.shape[-1], 10)
     logits = model.forward(X_train)
     np.testing.assert_almost_equal(
         logits.mean(), 1/10,
         err_msg="Since the weights are all 0's, the softmax activation should be 1/10")
+
 
     # Gradient approximation check for 100 images
     X_train = X_train[:100]

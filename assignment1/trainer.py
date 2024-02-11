@@ -1,5 +1,6 @@
 import numpy as np
 import utils
+from task2a import cross_entropy_loss
 
 
 class BaseTrainer:
@@ -36,9 +37,19 @@ class BaseTrainer:
             accuracy_train (float): Accuracy on train dataset
             accuracy_val (float): Accuracy on the validation dataset
         """
-        pass
+        loss = self.train_step(self.X_val, self.Y_val)
 
-    def train_step(self):
+        accuracy_train = self.model.forward(self.X_train)
+        accuracy_train = np.sum(accuracy_train == self.Y_train) / self.X_train.shape[0]
+
+        accuracy_val = self.model.forward(self.X_val)
+        accuracy_val = np.sum(accuracy_val == self.Y_val) / self.X_val.shape[0]
+
+        return loss, accuracy_train, accuracy_val
+        
+        
+
+    def train_step(self, X, Y):
         """
             Perform forward, backward and gradient descent step here.
         Args:
@@ -47,7 +58,9 @@ class BaseTrainer:
         Returns:
             loss value (float) on batch
         """
-        pass
+        outputs = self.model.forward(X)
+        loss = cross_entropy_loss(Y, outputs)
+        return loss
 
     def train(
             self,
@@ -73,6 +86,8 @@ class BaseTrainer:
         )
 
         global_step = 0
+        current_best_val_loss = float("inf")
+        callback_threshold = 10
         for epoch in range(num_epochs):
             train_loader = utils.batch_loader(
                 self.X_train, self.Y_train, self.batch_size, shuffle=self.shuffle_dataset)
@@ -90,5 +105,15 @@ class BaseTrainer:
 
                     # TODO (Task 2d): Implement early stopping here.
                     # You can access the validation loss in val_history["loss"]
+                    if val_loss < current_best_val_loss:
+                        current_best_val_loss = val_loss
+                        patience_counter = 0
+                    else:
+                        patience_counter += 1
+
+                    if patience_counter >= callback_threshold:                
+                        print(f"Early stopping at epoch {epoch}")
+                        return train_history, val_history
+
                 global_step += 1
         return train_history, val_history

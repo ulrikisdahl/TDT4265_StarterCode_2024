@@ -16,11 +16,20 @@ def calculate_accuracy(X: np.ndarray, targets: np.ndarray, model: BinaryModel) -
         Accuracy (float)
     """
     # TODO Implement this function (Task 2c)
-    accuracy = 0.0
+
+    #Calculate predictions
+    outputs = model.forward(X)
+    pred_function_lambda = lambda x: 1 if x >= 0.5 else 0
+    pred_function = np.vectorize(pred_function_lambda)
+    predictions = pred_function(outputs)
+
+    #Calculate accuracy
+    accuracy = np.sum(predictions == targets) / targets.shape[0]
     return accuracy
 
 
 class LogisticTrainer(BaseTrainer):
+
 
     def train_step(self, X_batch: np.ndarray, Y_batch: np.ndarray):
         """
@@ -35,7 +44,22 @@ class LogisticTrainer(BaseTrainer):
             loss value (float) on batch
         """
         # TODO: Implement this function (task 2b)
-        loss = 0
+
+        #Zero gradients
+        self.model.zero_grad()
+
+        #Forward pass
+        outputs = self.model.forward(X_batch) 
+
+        #Calculate loss
+        loss = cross_entropy_loss(Y_batch, outputs)
+
+        #Backward pass
+        self.model.backward(X_batch, outputs, Y_batch) 
+
+        #Gradient descent step
+        self.model.w -= 0.01*self.model.grad 
+
         return loss
 
     def validation_step(self):
@@ -63,7 +87,7 @@ class LogisticTrainer(BaseTrainer):
 
 def main():
     # hyperparameters DO NOT CHANGE IF NOT SPECIFIED IN ASSIGNMENT TEXT
-    num_epochs = 50
+    num_epochs = 500
     learning_rate = 0.05
     batch_size = 128
     shuffle_dataset = False
@@ -79,7 +103,7 @@ def main():
     # ANY PARTS OF THE CODE BELOW THIS CAN BE CHANGED.
 
     # Intialize model
-    model = BinaryModel()
+    model = BinaryModel(X_train.shape[0], X_train.shape[-1])
     # Train model
     trainer = LogisticTrainer(
         model, learning_rate, batch_size, shuffle_dataset,
@@ -96,7 +120,7 @@ def main():
     print("Train accuracy:", calculate_accuracy(X_train, Y_train, model))
     print("Validation accuracy:", calculate_accuracy(X_val, Y_val, model))
 
-    # Plot loss for first model (task 2b)
+    #Plot loss for first model (task 2b)
     plt.ylim([0., .2])
     utils.plot_loss(train_history["loss"],
                     "Training Loss", npoints_to_average=10)
@@ -117,10 +141,10 @@ def main():
     plt.savefig("task2b_binary_train_accuracy.png")
     plt.show()
 
-    # Task 2e - Create a comparison between training with and without shuffling
+    #Task 2e - Create a comparison between training with and without shuffling
     shuffle_dataset = True
     # Intialize model
-    model = BinaryModel()
+    model = BinaryModel(X_train.shape[0], X_train.shape[-1])
     # Train model
     trainer = LogisticTrainer(
         model, learning_rate, batch_size, shuffle_dataset,
