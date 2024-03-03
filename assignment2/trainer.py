@@ -1,5 +1,6 @@
 import numpy as np
 import utils
+from task2a import cross_entropy_loss 
 
 
 class BaseTrainer:
@@ -36,9 +37,18 @@ class BaseTrainer:
             accuracy_train (float): Accuracy on train dataset
             accuracy_val (float): Accuracy on the validation dataset
         """
-        pass
 
-    def train_step(self):
+        loss = self.train_step(self.X_val, self.Y_val)
+
+        accuracy_train = self.model.forward(self.X_train)
+        accuracy_train = np.sum(accuracy_train == self.Y_train) / self.X_train.shape[0]
+
+        accuracy_val = self.model.forward(self.X_val)
+        accuracy_val = np.sum(accuracy_val == self.Y_val) / self.X_val.shape[0]
+
+        return loss, accuracy_train, accuracy_val
+
+    def train_step(self, X):
         """
             Perform forward, backward and gradient descent step here.
         Args:
@@ -47,7 +57,10 @@ class BaseTrainer:
         Returns:
             loss value (float) on batch
         """
-        pass
+        print("CALLED")
+        loss = cross_entropy_loss(self.Y_train, self.model.forward(self.X_train))
+        return loss
+
 
     def train(
             self,
@@ -73,7 +86,11 @@ class BaseTrainer:
         )
 
         global_step = 0
+        current_best_val_loss = float("inf")
+        callback_threshold = 50
+        patience_counter = 0
         for epoch in range(num_epochs):
+            print(f"Epoch {epoch}")
             train_loader = utils.batch_loader(
                 self.X_train, self.Y_train, self.batch_size, shuffle=self.shuffle_dataset)
             for X_batch, Y_batch in iter(train_loader):
@@ -88,5 +105,16 @@ class BaseTrainer:
                     val_history["loss"][global_step] = val_loss
                     val_history["accuracy"][global_step] = accuracy_val
                     # TODO: Implement early stopping (copy from last assignment)
+
+                    if val_loss < current_best_val_loss:
+                        patience_counter = 0
+                        current_best_val_loss = val_loss
+                    else:
+                        patience_counter += 1
+
+                    if patience_counter > callback_threshold:
+                        print(f"Early callback at epoch {epoch}")
+                        return train_history, val_history
+
                 global_step += 1
         return train_history, val_history

@@ -19,8 +19,11 @@ def calculate_accuracy(
         Accuracy (float)
     """
     # TODO: Implement this function (copy from last assignment)
-    accuracy = 0
-    return accuracy
+   
+    #Calculate predictions
+    outputs = model.forward(X)
+    correct_preds = (targets == np.round(outputs))
+    return np.sum(correct_preds) / correct_preds.size
 
 
 class SoftmaxTrainer(BaseTrainer):
@@ -38,6 +41,10 @@ class SoftmaxTrainer(BaseTrainer):
         self.use_momentum = use_momentum
         # Init a history of previous gradients to use for implementing momentum
         self.previous_grads = [np.zeros_like(w) for w in self.model.ws]
+        for x in self.model.ws:
+            print(x.shape)
+        for x in self.previous_grads:
+            print(x.shape)
 
     def train_step(self, X_batch: np.ndarray, Y_batch: np.ndarray):
         """
@@ -53,11 +60,27 @@ class SoftmaxTrainer(BaseTrainer):
         """
         # TODO: Implement this function (task 2c)
 
-        loss = 0
+        
+        #zerog gradients
+        self.model.zero_grad()
 
-            self.model.ws[layer_idx] = (
-                self.model.ws[layer_idx] - self.learning_rate * grad
-        loss=cross_entropy_loss(Y_batch, logits)  # sol
+        #forward
+        y_pred = self.model.forward(X_batch)
+
+        #Calculate loss
+        loss = calculate_accuracy(X_batch, Y_batch, self.model)
+
+        #Backprop
+        self.model.backward(X_batch, y_pred, Y_batch)
+
+        #Gradient step
+        for i in range(len(self.model.ws)):
+            if self.use_momentum:
+                velocity = self.learning_rate*self.model.grads[i] + self.momentum_gamma*self.previous_grads[i]
+                self.model.ws[i] = self.model.ws[i] - velocity
+                self.previous_grads[i] = velocity
+            else:
+                self.model.ws[i] = self.model.ws[i] - 0.01*self.model.grads[i]
 
         return loss
 
@@ -85,10 +108,10 @@ class SoftmaxTrainer(BaseTrainer):
 
 def main():
     # hyperparameters DO NOT CHANGE IF NOT SPECIFIED IN ASSIGNMENT TEXT
-    num_epochs=50
+    num_epochs=30
     learning_rate=0.1
     batch_size=32
-    neurons_per_layer=[64, 10]
+    neurons_per_layer=[64, 64, 64, 64, 64, 64, 64, 64, 64, 10]
     momentum_gamma=0.9  # Task 3 hyperparameter
     shuffle_data=True
 

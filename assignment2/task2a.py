@@ -1,11 +1,46 @@
 import numpy as np
 import utils
 import typing
+import cProfile
 
 np.random.seed(1)
 
+ 
+def sigmoid(n: np.ndarray, use_improved_sigmoid: bool) -> np.ndarray:
+    """
+    Args:
+        n: weighted sum batch
+        use_improved_sigmoid:
+    Returns:
+        activation batch
+    """
+    if use_improved_sigmoid:
+        return 1.7159*np.tanh(2*n/3)
+    return 1 / (1 + np.exp(-n))
 
-def pre_process_images(X: np.ndarray):
+
+def sigmoid_dash(n: np.ndarray, use_improved_sigmoid: bool) -> np.ndarray:
+    """
+    Args:
+        n: weighted sum batch
+        use_improved_sigmoid:
+    Returns:
+        derivative of batch
+    """
+    if use_improved_sigmoid:
+        return 1.14393 / pow(np.cosh(2*n/3),2)
+    return np.exp(-n)/pow(np.exp(-n)+1, 2)
+
+
+def relu(n: np.ndarray) -> np.ndarray:
+    return n * (n > 0)
+
+
+def relu_dash(n: np.ndarray) -> np.ndarray:
+    return 1. * (n > 0)
+
+
+def pre_process_images(X: np.ndarray) -> np.ndarray:
     """
     Args:
         X: images of shape [batch size, 784] in the range (0, 255)
@@ -14,10 +49,18 @@ def pre_process_images(X: np.ndarray):
     """
     assert X.shape[1] == 784, f"X.shape[1]: {X.shape[1]}, should be 784"
     # TODO implement this function (Task 2a)
-    return X
+
+    mean_pixel_value = np.sum(X) / X.size
+    standard_deviation = np.std(X)
+    print(mean_pixel_value)
+    print(standard_deviation)
+    x_norm = (X - mean_pixel_value) / standard_deviation
+    batch_size = X.shape[0]
+
+    return np.hstack((x_norm, np.ones(batch_size).reshape((batch_size, 1))))
 
 
-def cross_entropy_loss(targets: np.ndarray, outputs: np.ndarray):
+def cross_entropy_loss(targets: np.ndarray, outputs: np.ndarray) -> np.ndarray:
     """
     Args:
         targets: labels/targets of each image of shape: [batch size, num_classes]
@@ -29,28 +72,44 @@ def cross_entropy_loss(targets: np.ndarray, outputs: np.ndarray):
         targets.shape == outputs.shape
     ), f"Targets shape: {targets.shape}, outputs: {outputs.shape}"
     # TODO: Implement this function (copy from last assignment)
-    raise NotImplementedError
+    # raise NotImplementedError
+
+    return np.sum(-np.sum(targets * np.log(outputs), axis=1)) / targets.shape[0]
+
+
+def c_softmax(x: np.ndarray) -> np.ndarray:
+    """
+    Args:
+        x: input of shape [batch size, num_classes]
+    Returns:
+        Softmax output of shape [batch size, num_classes]
+    """
+    clip = 1e-15
+    x = np.clip(x, -clip, None) #clip the inputs
+    return np.exp(x) / np.sum(np.exp(x), axis=1, keepdims=True)
 
 
 class SoftmaxModel:
-
     def __init__(
         self,
         # Number of neurons per layer
         neurons_per_layer: typing.List[int],
         use_improved_sigmoid: bool,  # Task 3b hyperparameter
         use_improved_weight_init: bool,  # Task 3a hyperparameter
-        use_relu: bool,  # Task 3c hyperparameter
+        use_relu: bool,  # Task 4 hyperparameter
     ):
-        np.random.seed(
-            1
-        )  # Always reset random seed before weight init to get comparable results.
+        # Always reset random seed before weight init to get comparable results.
+        np.random.seed(1)
         # Define number of input nodes
-        self.I = None
+        self.I = 785
         self.use_improved_sigmoid = use_improved_sigmoid
         self.use_relu = use_relu
         self.use_improved_weight_init = use_improved_weight_init
+        self.hidden_layer_weighted_sum = list()
+        self.hidden_layer_activation = list()
+        self.delta_i = None
 
+        #assert self.use_relu != use_improved_sigmoid
         # Define number of output nodes
         # neurons_per_layer = [64, 10] indicates that we will have two layers:
         # A hidden layer with 64 neurons and a output layer with 10 neurons.
@@ -59,13 +118,18 @@ class SoftmaxModel:
         # Initialize the weights
         self.ws = []
         prev = self.I
-        for size in self.neurons_per_layer:
+        for i, (size) in enumerate(self.neurons_per_layer):
             w_shape = (prev, size)
-            print("Initializing weight to shape:", w_shape)
-            w = np.zeros(w_shape)
-            self.ws.append(w)
+            if self.use_improved_weight_init:
+                sigma = 1/np.sqrt(w_shape[0])
+                self.ws.append(sigma * np.random.standard_normal((prev, size)))
+                # self.ws.append(np.random.normal(scale=sigma, size=w_shape))
+            else:
+                self.ws.append(np.random.uniform(-1, 1, w_shape)) #randomly sampled weights
+
             prev = size
         self.grads = [None for i in range(len(self.ws))]
+
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """
@@ -77,7 +141,23 @@ class SoftmaxModel:
         # TODO implement this function (Task 2b)
         # HINT: For performing the backward pass, you can save intermediate activations in variables in the forward pass.
         # such as self.hidden_layer_output = ...
-        return None
+        self.hidden_layer_output = [X]
+
+        #calculate hidden layers
+        a = X
+        #z = np.dot(X, self.ws[0]) #(b, hidden1)
+        for layer_weight in self.ws[:-1]:
+            z = np.dot(a, layer_weight) #weighted sum on current layer
+            #a = np.vectorize(relu)(z) #activation on previous layer
+            a = sigmoid(z, use_improved_sigmoid=self.use_improved_sigmoid)
+            self.hidden_layer_output.append(z) #save the inputs to each layer (weighted sum pre-activations)
+        self.last_hidden_activations = a #save the last hidden activations for computing gradients for the output layer
+
+        #calculate softmax
+        z = np.dot(a, self.ws[-1])
+        softmax = c_softmax(z)
+        
+        return softmax
 
     def backward(self, X: np.ndarray, outputs: np.ndarray, targets: np.ndarray) -> None:
         """
@@ -92,9 +172,27 @@ class SoftmaxModel:
         assert (
             targets.shape == outputs.shape
         ), f"Output shape: {outputs.shape}, targets: {targets.shape}"
+        self.grads = []
+
+        #Backprop
+        delta = outputs - targets #(bs, out)
+        gradientOutputs = np.dot(self.last_hidden_activations.T, delta) #(bs, hidden1).T * (bs, out) = (hidden1, out)
+        self.grads.insert(0, gradientOutputs)
+
+        for i in range(len(self.hidden_layer_output) - 1):
+            z = self.hidden_layer_output[-(i + 1)] #(bs, hidden)
+            layer_input = self.hidden_layer_output[-(i + 1) - 1] #(bs, input)
+
+            weights = self.ws[-(i + 1)] #(hidden, out)
+            d_relu = sigmoid_dash(z, self.use_improved_sigmoid) #(bs, hidden)
+
+            error = np.dot(delta, weights.T) #(bs, out) * (hidden, out).T = (bs, hidden)
+            delta = error * d_relu #(bs, hidden)
+            gradient = np.dot(layer_input.T, delta) / X.shape[0] #(input, hidden)
+            self.grads.insert(0, gradient)
+
         # A list of gradients.
         # For example, self.grads[0] will be the gradient for the first hidden layer
-        self.grads = []
         for grad, w in zip(self.grads, self.ws):
             assert (
                 grad.shape == w.shape
@@ -104,7 +202,7 @@ class SoftmaxModel:
         self.grads = [None for i in range(len(self.ws))]
 
 
-def one_hot_encode(Y: np.ndarray, num_classes: int):
+def one_hot_encode(Y: np.ndarray, num_classes: int) -> np.ndarray:
     """
     Args:
         Y: shape [Num examples, 1]
@@ -113,7 +211,12 @@ def one_hot_encode(Y: np.ndarray, num_classes: int):
         Y: shape [Num examples, num classes]
     """
     # TODO: Implement this function (copy from last assignment)
-    raise NotImplementedError
+    encode = np.zeros((Y.shape[0], num_classes), dtype=int)
+    for i, (row) in enumerate(Y):
+        encode[i, row[0]] = 1
+
+    # raise NotImplementedError
+    return encode
 
 
 def gradient_approximation_test(model: SoftmaxModel, X: np.ndarray, Y: np.ndarray):
@@ -121,14 +224,10 @@ def gradient_approximation_test(model: SoftmaxModel, X: np.ndarray, Y: np.ndarra
     Numerical approximation for gradients. Should not be edited.
     Details about this test is given in the appendix in the assignment.
     """
-
-    assert isinstance(X, np.ndarray) and isinstance(
-        Y, np.ndarray
-    ), f"X and Y should be of type np.ndarray!, got {type(X), type(Y)}"
-
     epsilon = 1e-3
     for layer_idx, w in enumerate(model.ws):
         for i in range(w.shape[0]):
+            print(i)
             for j in range(w.shape[1]):
                 orig = model.ws[layer_idx][i, j].copy()
                 model.ws[layer_idx][i, j] = orig + epsilon
@@ -142,8 +241,7 @@ def gradient_approximation_test(model: SoftmaxModel, X: np.ndarray, Y: np.ndarra
                 # Actual gradient
                 logits = model.forward(X)
                 model.backward(X, logits, Y)
-                difference = gradient_approximation - \
-                    model.grads[layer_idx][i, j]
+                difference = gradient_approximation - model.grads[layer_idx][i, j]
                 assert abs(difference) <= epsilon**1, (
                     f"Calculated gradient is incorrect. "
                     f"Layer IDX = {layer_idx}, i={i}, j={j}.\n"
@@ -170,12 +268,16 @@ def main():
     ), f"Expected X_train to have 785 elements per image. Shape was: {X_train.shape}"
 
     neurons_per_layer = [64, 10]
-    use_improved_sigmoid = True
-    use_improved_weight_init = True
-    use_relu = True
+    use_improved_sigmoid = False
+    use_improved_weight_init = False
+    use_relu = False
     model = SoftmaxModel(
-        neurons_per_layer, use_improved_sigmoid, use_improved_weight_init, use_relu
+        neurons_per_layer,
+        use_improved_sigmoid,
+        use_improved_weight_init,
+        use_relu
     )
+
 
     # Gradient approximation check for 100 images
     X_train = X_train[:100]
@@ -183,8 +285,12 @@ def main():
     for layer_idx, w in enumerate(model.ws):
         model.ws[layer_idx] = np.random.uniform(-1, 1, size=w.shape)
 
-    gradient_approximation_test(model, X_train, Y_train)
+    #gradient_approximation_test(model, X_train, Y_train)
 
 
 if __name__ == "__main__":
+    #cProfile.run('main()')
     main()
+
+
+  

@@ -19,7 +19,7 @@ def main():
 
     # Modify your network here
     neurons_per_layer = [64, 64, 10]
-    use_improved_sigmoid = True
+    use_improved_sigmoid = False
     use_improved_weight_init = True
     use_relu = False
     model = SoftmaxModel(

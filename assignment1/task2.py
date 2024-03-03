@@ -24,7 +24,7 @@ def calculate_accuracy(X: np.ndarray, targets: np.ndarray, model: BinaryModel) -
     predictions = pred_function(outputs)
 
     #Calculate accuracy
-    accuracy = np.sum(predictions == targets) / targets.shape[0]
+    accuracy = np.sum(predictions == targets) / targets.shape[0] 
     return accuracy
 
 

@@ -26,7 +26,8 @@ files_to_include = {
     "task4c": [".py"],
     "trainer": [".py"],
     "utils": [".py"],
-    "mnist.py": [".py"]
+    "mnist": [".py"],
+    "Assignment_2_delivery": [".pdf"]
 
 }
 zipfile_path = "assignment_code.zip"
