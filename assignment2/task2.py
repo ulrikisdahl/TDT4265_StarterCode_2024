@@ -97,12 +97,11 @@ class SoftmaxTrainer(BaseTrainer):
             accuracy_val (float): Accuracy on the validation dataset
         """
         # NO NEED TO CHANGE THIS FUNCTION
-        logits=self.model.forward(self.X_val)
-        loss=cross_entropy_loss(self.Y_val, logits)
+        logits = self.model.forward(self.X_val)
+        loss = cross_entropy_loss(self.Y_val, logits)
 
-        accuracy_train=calculate_accuracy(
-            self.X_train, self.Y_train, self.model)
-        accuracy_val=calculate_accuracy(self.X_val, self.Y_val, self.model)
+        accuracy_train = calculate_accuracy(self.X_train, self.Y_train, self.model)
+        accuracy_val = calculate_accuracy(self.X_val, self.Y_val, self.model)
         return loss, accuracy_train, accuracy_val
 
 
@@ -116,23 +115,23 @@ def main():
     shuffle_data=True
 
     # Settings for task 2 and 3. Keep all to false for task 2.
-    use_improved_sigmoid=False
-    use_improved_weight_init=False
-    use_momentum=False
-    use_relu=False
+    use_improved_sigmoid = False
+    use_improved_weight_init = False
+    use_momentum = False
+    use_relu = False
 
     # Load dataset
-    X_train, Y_train, X_val, Y_val=utils.load_full_mnist()
-    X_train=pre_process_images(X_train)
-    X_val=pre_process_images(X_val)
-    Y_train=one_hot_encode(Y_train, 10)
-    Y_val=one_hot_encode(Y_val, 10)
+    X_train, Y_train, X_val, Y_val = utils.load_full_mnist()
+    X_train = pre_process_images(X_train)
+    X_val = pre_process_images(X_val)
+    Y_train = one_hot_encode(Y_train, 10)
+    Y_val = one_hot_encode(Y_val, 10)
     # Hyperparameters
 
-    model=SoftmaxModel(
+    model = SoftmaxModel(
         neurons_per_layer, use_improved_sigmoid, use_improved_weight_init, use_relu
     )
-    trainer=SoftmaxTrainer(
+    trainer = SoftmaxTrainer(
         momentum_gamma,
         use_momentum,
         model,
@@ -144,7 +143,7 @@ def main():
         X_val,
         Y_val,
     )
-    train_history, val_history=trainer.train(num_epochs)
+    train_history, val_history = trainer.train(num_epochs)
 
     print(
         "Final Train Cross Entropy Loss:",
@@ -161,8 +160,7 @@ def main():
     plt.figure(figsize=(20, 12))
     plt.subplot(1, 2, 1)
     plt.ylim([0.0, 0.9])
-    utils.plot_loss(train_history["loss"],
-                    "Training Loss", npoints_to_average=10)
+    utils.plot_loss(train_history["loss"], "Training Loss", npoints_to_average=10)
     utils.plot_loss(val_history["loss"], "Validation Loss")
     plt.legend()
     plt.xlabel("Number of Training Steps")
