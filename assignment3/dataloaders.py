@@ -4,7 +4,11 @@ import torch
 import typing
 import numpy as np
 import pathlib
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 np.random.seed(0)
+
 
 mean = (0.5, 0.5, 0.5)
 std = (.25, .25, .25)

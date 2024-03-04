@@ -29,12 +29,13 @@ class ExampleModel(nn.Module):
             )
         )
         # The output of feature_extractor will be [batch_size, num_filters, 16, 16]
-        self.num_output_features = 32 * 32 * 32
+        self.num_output_features = 32 * 32 * 32 # fair
         # Initialize our last fully connected layer
         # Inputs all extracted features from the convolutional layers
         # Outputs num_classes predictions, 1 for each class.
         # There is no need for softmax activation function, as this is
         # included with nn.CrossEntropyLoss
+        self.flat = nn.Flatten()
         self.classifier = nn.Sequential(
             nn.Linear(self.num_output_features, num_classes),
         )
@@ -49,6 +50,11 @@ class ExampleModel(nn.Module):
         batch_size = x.shape[0]
         out = x
         expected_shape = (batch_size, self.num_classes)
+
+        out = self.feature_extractor(out)
+        out = self.flat(out) #flatten the output
+        out = self.classifier(out)
+
         assert out.shape == (
             batch_size,
             self.num_classes,
