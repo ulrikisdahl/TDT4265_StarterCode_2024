@@ -26,18 +26,52 @@ class ExampleModel(nn.Module):
                 kernel_size=5,
                 stride=1,
                 padding=2,
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(
+                kernel_size=2,
+                stride=2
+            ),
+
+            nn.Conv2d(
+                in_channels=32,
+                out_channels=64,
+                kernel_size=5,
+                stride=1,
+                padding=2
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(
+                kernel_size=2,
+                stride=2
+            ),
+
+            nn.Conv2d(
+                in_channels=64,
+                out_channels=128,
+                kernel_size=5,
+                stride=1,
+                padding=2
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(
+                kernel_size=2,
+                stride=2
             )
         )
         # The output of feature_extractor will be [batch_size, num_filters, 16, 16]
-        self.num_output_features = 32 * 32 * 32 # fair
+        # self.num_output_features = 32 * 32 * 32 # 
         # Initialize our last fully connected layer
         # Inputs all extracted features from the convolutional layers
         # Outputs num_classes predictions, 1 for each class.
         # There is no need for softmax activation function, as this is
         # included with nn.CrossEntropyLoss
-        self.flat = nn.Flatten()
+        self.flat = nn.Flatten() # 4 * 4 * 128
         self.classifier = nn.Sequential(
-            nn.Linear(self.num_output_features, num_classes),
+            nn.Flatten(),
+            nn.Linear(2048, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
         )
 
     def forward(self, x):
@@ -52,7 +86,7 @@ class ExampleModel(nn.Module):
         expected_shape = (batch_size, self.num_classes)
 
         out = self.feature_extractor(out)
-        out = self.flat(out) #flatten the output
+        #out = self.flat(out) #flatten the output
         out = self.classifier(out)
 
         assert out.shape == (
@@ -96,7 +130,7 @@ def main():
     dataloaders = load_cifar10(batch_size)
     model = ExampleModel(image_channels=3, num_classes=10)
     trainer = Trainer(
-        batch_size, learning_rate, early_stop_count, epochs, model, dataloaders
+        batch_size, learning_rate, early_stop_count, epochs, model, dataloaders, False
     )
     trainer.train()
     create_plots(trainer, "task2")

@@ -22,6 +22,7 @@ def compute_loss_and_accuracy(
     """
     average_loss = 0
     accuracy = 0
+    total_samples = 0
     # TODO: Implement this function (Task  2a)
     with torch.no_grad():
         for (X_batch, Y_batch) in dataloader:
@@ -31,11 +32,23 @@ def compute_loss_and_accuracy(
             # Forward pass the images through our model
             output_probs = model(X_batch)
 
-            # Compute Loss and Accuracy
-            average_loss = loss_criterion(output_probs, Y_batch)
-            accuracy = torch.sum(torch.argmax(output_probs, dim=1) == torch.argmax(Y_batch, dim=1)) / X_batch.shape[0]
+            # Compute Loss
+            average_loss += loss_criterion(output_probs, Y_batch) * X_batch.shape[0]
+
+            #acccuracy
+            predictions = torch.argmax(output_probs, axis=1)
+            accuracy += torch.sum(predictions == Y_batch).item()
+
+            total_samples += X_batch.shape[0]
 
             # Predicted class is the max index over the column dimension
+
+    average_loss = average_loss / total_samples
+    accuracy = accuracy / total_samples
+    # print("HER")
+    # print(X_batch)
+    # print(output_probs)
+    # print(average_loss)
     return average_loss, accuracy
 
 
@@ -47,7 +60,8 @@ class Trainer:
                  early_stop_count: int,
                  epochs: int,
                  model: torch.nn.Module,
-                 dataloaders: typing.List[torch.utils.data.DataLoader]):
+                 dataloaders: typing.List[torch.utils.data.DataLoader],
+                 use_adam: bool):
         """
             Initialize our trainer class.
         """
@@ -65,7 +79,10 @@ class Trainer:
         print(self.model)
 
         # Define our optimizer. SGD = Stochastich Gradient Descent
-        self.optimizer = torch.optim.SGD(self.model.parameters(),
+        if use_adam:
+            self.optimizer = torch.optim.Adam(self.model.parameters(), 1e-4, betas=(0.5, 0.999))
+        else:
+            self.optimizer = torch.optim.SGD(self.model.parameters(),
                                          self.learning_rate)
 
         # Load our dataset

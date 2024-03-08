@@ -94,7 +94,8 @@ def plot_loss(
         npoints_to_average: Number of points to average plot
     """
     global_steps = list(loss_dict.keys())
-    loss = list(loss_dict.values())
+    #loss = list(loss_dict.values())
+    loss = [l.cpu().numpy() if torch.is_tensor(l) else l for l in loss_dict.values()]
     if npoints_to_average == 1 or not plot_variance:
         plt.plot(global_steps, loss, label=label)
         return

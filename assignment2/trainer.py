@@ -24,6 +24,7 @@ class BaseTrainer:
         self.batch_size = batch_size
         self.model = model
         self.shuffle_dataset = shuffle_dataset
+        self.x = "x"
 
     def validation_step(self):
         """
